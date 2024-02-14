@@ -1,3 +1,0 @@
-   Compiling ip-checker v0.1.0 (/home/ethanl/projects/rust/library/aws/ip-checker)
-    Finished dev [unoptimized + debuginfo] target(s) in 17.93s
-     Running `/home/ethanl/projects/rust/library/aws/ip-checker/target/debug/ip-checker`
