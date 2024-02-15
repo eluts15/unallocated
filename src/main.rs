@@ -26,8 +26,8 @@ async fn main() {
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
 
-    //let ips = list_all_ec2_ips().await.unwrap();
-    //
+    let ec2_instance_info = list_all_ec2_ips(&ec2_client).await;
+    let _ = ec2_instance_info;
 
     match fetch_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
@@ -37,9 +37,5 @@ async fn main() {
         Err(err) => eprintln!("Error fetching record sets {:?}", err),
     }
 
-    println!("Running fn list_all_ec2_ips..");
-    println!();
-    _ = list_all_ec2_ips(&ec2_client).await;
-
-    println!("Main Finished Executing..");
+    println!("Done.");
 }

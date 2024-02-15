@@ -21,10 +21,10 @@ pub async fn list_all_resource_record_sets(
     if hosted_zone_id.is_empty() {
         println!("Zone Error: {:?}", hosted_zone_id);
     } else {
-        println!("Zone ID found: {:?}\n", hosted_zone_id);
+        println!("Zone ID found: {:?}", hosted_zone_id);
     }
 
-    println!("Attempting to fetch records...\n");
+    println!("Attempting to fetch records...");
     let response = client
         .list_resource_record_sets()
         .hosted_zone_id(hosted_zone_id.to_owned())
