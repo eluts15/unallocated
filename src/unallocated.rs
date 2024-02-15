@@ -52,10 +52,12 @@ pub async fn list_all_resource_record_sets(
         .iter()
         .map(|record_set| {
             let name = record_set.name.as_str();
-            let resource_records: Vec<&str> = record_set.resource_records.as_ref().map_or_else(
-                || Vec::new(),
-                |records| records.iter().map(|record| record.value.as_str()).collect(),
-            );
+            let resource_records: Vec<&str> = record_set
+                .resource_records
+                .as_ref()
+                .map_or_else(Vec::new, |records| {
+                    records.iter().map(|record| record.value.as_str()).collect()
+                });
             let r#type = record_set.r#type.as_str();
             (name, resource_records, r#type)
         })

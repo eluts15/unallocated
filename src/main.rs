@@ -34,37 +34,5 @@ async fn main() {
         Err(err) => eprintln!("Error fetching record sets {:?}", err),
     }
 
-    //println!("Zone ID: {}", zone_id);
-    //println!("Zone Name: {}", zone_name);
-
-    //let record_sets = list_all_resource_record_sets(&client, hosted_zone_id).await; //panic!
-
-    // let a_records: Vec<String> = record_sets
-    //     .into_iter()
-    //     .filter(|rs| rs.r#type == "A".into() || rs.r#type == "AAAA".into())
-    //     .flat_map(|rs| {
-    //         rs.resource_records
-    //             .unwrap_or_default()
-    //             .into_iter()
-    //             .map(|rr| rr.value)
-    //     })
-    //     .collect();
-
-    // println!("records of type A or AAAA: {:?}", a_records);
-
-    //let unassociated_ips: Vec<String> = a_records
-    //    .into_iter()
-    //    .filter(|ip| !ips.contains(ip))
-    //    .collect();
-
-    //println!("unassociated_ips: {:?}", unassociated_ips);
-
-    //if !unassociated_ips.is_empty() {
-    //    println!(
-    //        "Zone: {}, Unassociated IPs: {:?}",
-    //        hosted_zone_id, unassociated_ips
-    //    );
-    //}
-
     println!("Main Finished Executing..");
 }
