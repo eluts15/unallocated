@@ -16,7 +16,7 @@ pub async fn fetch_hosted_zones(client: &Client) -> Result<String, Error> {
 pub async fn list_all_resource_record_sets(
     client: &Client,
     hosted_zone_id: &str,
-) -> Result<(), Error> {
+) -> Result<Vec<(String, Vec<String>, String)>, Error> {
     let hosted_zone_id = &hosted_zone_id;
     if hosted_zone_id.is_empty() {
         println!("Zone Error: {:?}", hosted_zone_id);
@@ -46,7 +46,7 @@ pub async fn list_all_resource_record_sets(
         }
     }
 
-    let a_records = record_set_type_a_records.as_slice();
+    let a_records = record_set_type_a_records;
 
     let parsed_records: Vec<(&str, Vec<&str>, &str)> = a_records
         .iter()
@@ -63,12 +63,17 @@ pub async fn list_all_resource_record_sets(
         })
         .collect();
 
-    for record in &parsed_records {
-        println!("Name: {}", record.0);
-        println!("Resource Records: {:?}", record.1);
-        println!("Type: {}", record.2);
-        println!();
-    }
+    // Cloning the data inside the tuple before returning
+    let cloned_records: Vec<(String, Vec<String>, String)> = parsed_records
+        .iter()
+        .map(|(name, records, r#type)| {
+            (
+                name.to_string(),
+                records.iter().map(|s| s.to_string()).collect(),
+                r#type.to_string(),
+            )
+        })
+        .collect();
 
-    Ok(())
+    Ok(cloned_records)
 }

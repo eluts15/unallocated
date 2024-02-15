@@ -1,6 +1,6 @@
 use aws_sdk_ec2::{Client, Error};
 
-pub async fn list_all_ec2_ips(client: &Client) -> Result<(), Error> {
+pub async fn list_all_ec2_ips(client: &Client) -> Result<Vec<(String, String)>, Error> {
     let response = client.describe_instances().to_owned().send().await?;
 
     let reservations = response.reservations;
@@ -24,11 +24,6 @@ pub async fn list_all_ec2_ips(client: &Client) -> Result<(), Error> {
         println!("Error: Error fetching instance info.");
     }
 
-    for (instance_id, public_ip) in instance_info {
-        println!(
-            "InstanceId: {:?}, IP Addresss: {:?}",
-            instance_id, public_ip
-        );
-    }
-    Ok(())
+    let return_instance_info = instance_info.clone();
+    Ok(return_instance_info)
 }
