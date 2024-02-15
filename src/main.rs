@@ -1,7 +1,7 @@
-mod unallocated;
-use crate::unallocated::fetch_hosted_zones;
-use crate::unallocated::list_all_resource_record_sets;
+mod fetch_records;
 mod list_ec2_ips;
+use crate::fetch_records::list_all_resource_record_sets;
+use crate::fetch_records::search_hosted_zones;
 use crate::list_ec2_ips::list_all_ec2_ips;
 use aws_sdk_ec2::Client as Ec2Client;
 use aws_sdk_route53::Client as Route53Client;
@@ -26,10 +26,7 @@ async fn main() {
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
 
-    // let ec2_instance_info = list_all_ec2_ips(&ec2_client).await;
-    // _ = ec2_instance_info;
-
-    match fetch_hosted_zones(&r53_client).await {
+    match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
             let ips = list_all_ec2_ips(&ec2_client).await;
 
@@ -53,7 +50,7 @@ async fn main() {
                 Ok(a_records) => {
                     for (name, record, record_type) in a_records {
                         println!(
-                            "Name: {:?}\nRecords: {:?}\nRecord_Type: {:?}\n",
+                            "Name: {:?}\nRecord: {:?}\nRecord_Type: {:?}\n",
                             name, record, record_type
                         );
                     }

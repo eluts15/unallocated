@@ -1,5 +1,5 @@
 use aws_sdk_route53::{Client, Error};
-pub async fn fetch_hosted_zones(client: &Client) -> Result<String, Error> {
+pub async fn search_hosted_zones(client: &Client) -> Result<String, Error> {
     let hosted_zones = client.list_hosted_zones().send().await?;
 
     let mut zone_ids = String::new();
@@ -21,7 +21,7 @@ pub async fn list_all_resource_record_sets(
     if hosted_zone_id.is_empty() {
         println!("Zone Error: {:?}", hosted_zone_id);
     } else {
-        println!("Zone ID found: {:?}", hosted_zone_id);
+        println!("Zone ID found, listing records in: {:?}", hosted_zone_id);
     }
 
     println!("Attempting to fetch records...");
