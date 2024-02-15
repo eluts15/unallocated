@@ -27,10 +27,11 @@ async fn main() {
 
     match fetch_hosted_zones(&client).await {
         Ok(zone_ids) => {
-            // Now you can pass zone_ids to other functions as needed
-            list_all_resource_record_sets(&client, &zone_ids).await;
+            // Janky way of passing the zone_id to the function.
+            let record_sets = list_all_resource_record_sets(&client, &zone_ids).await;
+            println!("{:?}", record_sets);
         }
-        Err(err) => eprintln!("Error fetching hosted zones: {:?}", err),
+        Err(err) => eprintln!("Error fetching record sets {:?}", err),
     }
 
     //println!("Zone ID: {}", zone_id);
