@@ -1,4 +1,6 @@
 use aws_sdk_route53::{Client, Error};
+
+// TODO: Document fn
 pub async fn search_hosted_zones(client: &Client) -> Result<String, Error> {
     let hosted_zones = client.list_hosted_zones().send().await?;
 
@@ -13,18 +15,17 @@ pub async fn search_hosted_zones(client: &Client) -> Result<String, Error> {
     Ok(zone_ids)
 }
 
+// TODO: Document fn
 pub async fn list_all_resource_record_sets(
     client: &Client,
     hosted_zone_id: &str,
 ) -> Result<Vec<(String, Vec<String>, String)>, Error> {
     let hosted_zone_id = &hosted_zone_id;
     if hosted_zone_id.is_empty() {
-        println!("Zone Error: {:?}", hosted_zone_id);
+        println!("Zone Error: {:?}\n", hosted_zone_id);
     } else {
-        println!("Zone ID found, listing records in: {:?}", hosted_zone_id);
+        println!("Zone ID found, listing records in: {:?}\n", hosted_zone_id);
     }
-
-    println!("Fetching existing records from Route53.");
     let response = client
         .list_resource_record_sets()
         .hosted_zone_id(hosted_zone_id.to_owned())
@@ -48,7 +49,7 @@ pub async fn list_all_resource_record_sets(
 
     let a_records = record_set_type_a_records;
 
-    // TODO: Look into this redunantcy.
+    // TODO: Look into this redunancy.
     let parsed_records: Vec<(&str, Vec<&str>, &str)> = a_records
         .iter()
         .map(|record_set| {

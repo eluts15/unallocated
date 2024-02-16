@@ -46,6 +46,7 @@ async fn main() {
                     eprintln!("Error fetching EC2 IPs: {}", err);
                 }
             }
+            println!();
 
             let a_records = list_all_resource_record_sets(&r53_client, &zone_ids).await;
 
@@ -67,20 +68,20 @@ async fn main() {
                                         .iter()
                                         .any(|(_, ip)| ip == record_ip)
                                     {
-                                        println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED", record, name);
+                                        println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED\n", record, name);
                                     }
                                     if ec2_instance_public_ips
                                         .iter()
                                         .any(|(_, ip)| ip == record_ip)
                                     {
                                         println!(
-                                            "The record {:?} appears to be valid.  --OK",
+                                            "The record {:?} appears to be valid.  --OK\n",
                                             record
                                         );
                                     }
                                 } else {
                                     // Handle the case where the record does not contain an IP address
-                                    println!("INFO: A record does not contain an IP address for {} --INFO", name);
+                                    println!("INFO: A record does not contain an IP address for {} --INFO\n", name);
                                 }
                             }
                         }
