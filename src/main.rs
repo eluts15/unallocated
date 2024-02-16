@@ -26,13 +26,7 @@ async fn main() {
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
 
-    // Used  to check if an "A" record in Route53 is associated with a dangling EC2 instance.
-    //let instance_id = String::new();
-    let public_ip_address = String::new();
-    //let mut domain_name = String::new();
-    //let mut a_record = Vec::new();
-    //let mut r_type = String::new();
-
+    println!("Fetching public IPs for associated instances.");
     match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
             let ips = list_all_ec2_ips(&ec2_client).await;

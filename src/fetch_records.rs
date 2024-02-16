@@ -24,7 +24,7 @@ pub async fn list_all_resource_record_sets(
         println!("Zone ID found, listing records in: {:?}", hosted_zone_id);
     }
 
-    println!("Attempting to fetch records...");
+    println!("Fetching existing records from Route53.");
     let response = client
         .list_resource_record_sets()
         .hosted_zone_id(hosted_zone_id.to_owned())
@@ -41,13 +41,14 @@ pub async fn list_all_resource_record_sets(
                 record_set_type_a_records.push(record_set);
             }
         } else {
-            println!("Error parsing record types.");
+            eprintln!("Error parsing record types.");
             // Handle the case where the record type is not present
         }
     }
 
     let a_records = record_set_type_a_records;
 
+    // TODO: Look into this redunantcy.
     let parsed_records: Vec<(&str, Vec<&str>, &str)> = a_records
         .iter()
         .map(|record_set| {

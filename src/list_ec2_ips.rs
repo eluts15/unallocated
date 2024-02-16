@@ -13,7 +13,6 @@ pub async fn list_all_ec2_ips(client: &Client) -> Result<Vec<(String, String)>, 
                 for instance in instances {
                     if let Some(instance_id) = instance.instance_id {
                         if let Some(public_ip) = instance.public_ip_address {
-                            println!("fetching public ips for associated instances...");
                             instance_info.push((instance_id, public_ip));
                         }
                     }
@@ -23,7 +22,6 @@ pub async fn list_all_ec2_ips(client: &Client) -> Result<Vec<(String, String)>, 
     } else {
         println!("Error: Error fetching instance info.");
     }
-
-    let return_instance_info = instance_info.clone();
-    Ok(return_instance_info)
+    //let return_instance_info = instance_info.clone();
+    Ok(instance_info)
 }
