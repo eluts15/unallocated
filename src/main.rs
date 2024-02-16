@@ -26,41 +26,65 @@ async fn main() {
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
 
+    // Used  to check if an "A" record in Route53 is associated with a dangling EC2 instance.
+    let mut instance_id = String::new();
+    let mut public_ip_address = String::new();
+    let mut domain_name = String::new();
+    let mut a_record = Vec::new();
+    let mut r_type = String::new();
+
     match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
             let ips = list_all_ec2_ips(&ec2_client).await;
 
             match ips {
                 Ok(ips) => {
-                    // `ips` is now a Vec<(String, String)>
-                    for (instance_id, ip) in ips {
-                        // Use `instance_id` and `ip` here
-                        println!("Instance ID: {},\nIP Address: {}\n", instance_id, ip);
+                    for (id, ip) in ips {
+                        instance_id = id;
+                        public_ip_address = ip;
+                        println!(
+                            "Instance ID: {},\nIP Address: {}\n",
+                            instance_id, public_ip_address
+                        );
                     }
                 }
                 Err(err) => {
-                    // Handle the error here
                     eprintln!("Error fetching EC2 IPs: {}", err);
                 }
             }
+
             // Janky way of passing the zone_id to the function.
             let a_records = list_all_resource_record_sets(&r53_client, &zone_ids).await;
 
             match a_records {
                 Ok(a_records) => {
                     for (name, record, record_type) in a_records {
-                        println!(
-                            "Name: {:?}\nRecord: {:?}\nRecord_Type: {:?}\n",
-                            name, record, record_type
-                        );
+                        domain_name = name;
+                        a_record = record;
+                        r_type = record_type;
                     }
                 }
                 Err(err) => {
                     eprintln!("Error fetching records fom Route53: {}", err);
                 }
             }
+
+            let id = instance_id;
+            let public_ip_address = public_ip_address;
+            let a_record = a_record;
+            let r_type = r_type;
+            let domain_name = domain_name;
+
+            // Determine if the A record in Route53 is attached to an existing instance.
+            for record in &a_record {
+                if record == &public_ip_address {
+                    println!("No unallocated IP addresses found in Route53.");
+                } else {
+                    println!("The record {:?} of type: {:?} for {:?} appears to be unallocated. Consider deleting the record.", record, r_type, domain_name);
+                }
+            }
         }
-        Err(err) => eprintln!("Error fetching record sets {:?}", err),
+        Err(err) => eprintln!("Error fetching resources {:?}", err),
     }
 
     println!("Done.");
