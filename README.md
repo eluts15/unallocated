@@ -31,6 +31,10 @@ The record ["xx.xx.xx.xx"] for test3.example.com. appears to be unallocated. Con
 Done.
 
 ```
+## Building for Release
+```
+Cargo build --release
+```
 
 ## Setup 
 
