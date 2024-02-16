@@ -43,7 +43,7 @@ async fn main() {
                         instance_id = id;
                         public_ip_address = ip;
                         println!(
-                            "Instance ID: {},\nIP Address: {}\n",
+                            "Instance ID: {},\nIP Address: {}",
                             instance_id, public_ip_address
                         );
                     }
@@ -60,8 +60,21 @@ async fn main() {
                 Ok(a_records) => {
                     for (name, record, record_type) in a_records {
                         domain_name = name;
-                        a_record = record;
+                        a_record = record.clone();
                         r_type = record_type;
+
+                        println!(
+                            "Existing Record found: {:?}. Domain Name: {}",
+                            a_record, domain_name
+                        );
+
+                        for record in &record {
+                            if record == &public_ip_address {
+                                println!("No unallocated IP addresses found.");
+                            } else {
+                                println!("The record {:?} of type: {:?} for {:?} appears to be unallocated. Consider deleting the record.", record, r_type, domain_name);
+                            }
+                        }
                     }
                 }
                 Err(err) => {
@@ -69,20 +82,7 @@ async fn main() {
                 }
             }
 
-            let id = instance_id;
-            let public_ip_address = public_ip_address;
-            let a_record = a_record;
-            let r_type = r_type;
-            let domain_name = domain_name;
-
             // Determine if the A record in Route53 is attached to an existing instance.
-            for record in &a_record {
-                if record == &public_ip_address {
-                    println!("No unallocated IP addresses found in Route53.");
-                } else {
-                    println!("The record {:?} of type: {:?} for {:?} appears to be unallocated. Consider deleting the record.", record, r_type, domain_name);
-                }
-            }
         }
         Err(err) => eprintln!("Error fetching resources {:?}", err),
     }
