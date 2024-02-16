@@ -27,11 +27,11 @@ async fn main() {
     let ec2_client = Ec2Client::new(&shared_config);
 
     // Used  to check if an "A" record in Route53 is associated with a dangling EC2 instance.
-    let mut instance_id = String::new();
-    let mut public_ip_address = String::new();
-    let mut domain_name = String::new();
-    let mut a_record = Vec::new();
-    let mut r_type = String::new();
+    //let instance_id = String::new();
+    let public_ip_address = String::new();
+    //let mut domain_name = String::new();
+    //let mut a_record = Vec::new();
+    //let mut r_type = String::new();
 
     match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
@@ -40,10 +40,10 @@ async fn main() {
             match ips {
                 Ok(ips) => {
                     for (id, ip) in ips {
-                        instance_id = id;
-                        public_ip_address = ip;
+                        let instance_id = id;
+                        let public_ip_address = ip;
                         println!(
-                            "Instance ID: {},\nIP Address: {}",
+                            "Instance ID: {}, IP Address: {}",
                             instance_id, public_ip_address
                         );
                     }
@@ -53,27 +53,45 @@ async fn main() {
                 }
             }
 
-            // Janky way of passing the zone_id to the function.
             let a_records = list_all_resource_record_sets(&r53_client, &zone_ids).await;
 
             match a_records {
                 Ok(a_records) => {
-                    for (name, record, record_type) in a_records {
-                        domain_name = name;
-                        a_record = record.clone();
-                        r_type = record_type;
+                    let ec2_instance_public_ips = list_all_ec2_ips(&ec2_client).await;
 
-                        println!(
-                            "Existing Record found: {:?}. Domain Name: {}",
-                            a_record, domain_name
-                        );
+                    // Compare existing EC2 instance IPs in this account
+                    match ec2_instance_public_ips {
+                        Ok(ec2_instance_public_ips) => {
+                            for (name, record, _) in a_records {
+                                println!(
+                                    "Existing Record found: {:?}. Domain Name: {}",
+                                    record, name
+                                );
 
-                        for record in &record {
-                            if record == &public_ip_address {
-                                println!("No unallocated IP addresses found.");
-                            } else {
-                                println!("The record {:?} of type: {:?} for {:?} appears to be unallocated. Consider deleting the record.", record, r_type, domain_name);
+                                if let Some(record_ip) = record.first() {
+                                    if !ec2_instance_public_ips
+                                        .iter()
+                                        .any(|(_, ip)| ip == record_ip)
+                                    {
+                                        println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED", record, name);
+                                    }
+                                    if ec2_instance_public_ips
+                                        .iter()
+                                        .any(|(_, ip)| ip == record_ip)
+                                    {
+                                        println!(
+                                            "The record {:?} appears to be valid.  --OK",
+                                            record
+                                        );
+                                    }
+                                } else {
+                                    // Handle the case where the record does not contain an IP address
+                                    println!("INFO: A record does not contain an IP address for {} --INFO", name);
+                                }
                             }
+                        }
+                        Err(err) => {
+                            eprintln!("Error fetching EC2 instance IPs: {}", err);
                         }
                     }
                 }
@@ -84,7 +102,7 @@ async fn main() {
 
             // Determine if the A record in Route53 is attached to an existing instance.
         }
-        Err(err) => eprintln!("Error fetching resources {:?}", err),
+        Err(err) => eprintln!("Error fetching resources {:?}, Check Permission Set", err),
     }
 
     println!("Done.");
