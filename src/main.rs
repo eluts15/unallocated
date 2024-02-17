@@ -1,14 +1,17 @@
 mod fetch_records;
+mod linode_api_read_only;
 mod list_ec2_ips;
-use crate::fetch_records::list_all_resource_record_sets;
-use crate::fetch_records::search_hosted_zones;
+use crate::fetch_records::{list_all_resource_record_sets, search_hosted_zones};
+use crate::linode_api_read_only::{extract, list_linode_instances};
 use crate::list_ec2_ips::list_all_ec2_ips;
 use aws_sdk_ec2::Client as Ec2Client;
 use aws_sdk_route53::Client as Route53Client;
 use dotenv::dotenv;
+use serde_json::to_string_pretty;
+use std::env;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // AWS credential setup.
     dotenv().ok();
 
@@ -25,6 +28,33 @@ async fn main() {
 
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
+
+    let token = env::var("LINODE_API_TOKEN").expect("LINODE_API_TOKEN in .env file.");
+
+    let json_response = match list_linode_instances(token).await {
+        Ok(response) => response,
+        Err(err) => {
+            eprintln!("Error: {}", err);
+            return Ok(());
+        }
+    };
+
+    let formatted_json_response = to_string_pretty(&json_response)?;
+    println!(
+        "{0: <30} | {1: <15} | {2: <30}",
+        "HOSTNAME", "IP_ADDRESS", "LINODE_ID\n"
+    );
+
+    match extract(&formatted_json_response).await {
+        Ok(data) => {
+            for (id, label, ipv4) in &data {
+                println!("{0: <30} | {1: <15} | {2: <30}", label, ipv4, id);
+            }
+        }
+        Err(e) => {
+            eprintln!("Error {}", e);
+        }
+    }
 
     println!("Fetching public IPs for associated instances.");
     match search_hosted_zones(&r53_client).await {
@@ -101,4 +131,6 @@ async fn main() {
     }
 
     println!("Done.");
+
+    Ok(())
 }
