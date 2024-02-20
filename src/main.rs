@@ -72,6 +72,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Vec::new() // Return an empty vector as a fallback value
                         });
 
+                    let mut ocurrences_ok = 0;
+                    let mut ocurrences_unexpected = 0;
+                    let mut ocurrences_info = 0;
+
                     // Compare the allocated addresses and see if a record exists.
                     for (name, record, _) in a_records {
                         if let Some(record_ip) = record.first() {
@@ -82,11 +86,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     "The record {:?} for {} appears to be valid.  --OK",
                                     record, name
                                 );
+                                ocurrences_ok += 1;
                             }
                             if !linode_instance_info.iter().any(|(_, ip)| ip == record_ip)
                                 && !ec2_instance_info.iter().any(|(_, ip)| ip == record_ip)
                             {
-                                println!("The record {:?} for {} appears to be unallocated/. Consider deleting the record. --UNEXPECTED", record, name);
+                                println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED", record, name);
+                                ocurrences_unexpected += 1;
                             }
                         } else {
                             // Handle the case where the record does not contain an IP address
@@ -94,8 +100,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 "INFO: A record does not contain an IP address for {} --INFO",
                                 name
                             );
+                            ocurrences_info += 1;
                         }
                     }
+                    println!();
+                    // Printing the occurrences
+                    println!("{} OK", ocurrences_ok);
+                    println!("{} May require attention.", ocurrences_unexpected);
+                    println!("{} Not associated with an 'A' record.", ocurrences_info);
+
+                    let total_number_of_records =
+                        ocurrences_ok + ocurrences_unexpected + ocurrences_info;
+                    println!("Iterated over {} records.", total_number_of_records);
+                    println!("Done");
                 }
                 Err(err) => {
                     eprintln!("Error fetching records fom Route53: {}", err);
@@ -106,8 +123,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(err) => eprintln!("Error fetching resources {:?}, Check Permission Set", err),
     }
-
-    println!("Done.");
-
     Ok(())
 }
