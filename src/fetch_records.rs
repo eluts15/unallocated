@@ -4,15 +4,22 @@ use aws_sdk_route53::{Client, Error};
 pub async fn search_hosted_zones(client: &Client) -> Result<String, Error> {
     let hosted_zones = client.list_hosted_zones().send().await?;
 
-    let mut zone_ids = String::new();
-    for zone in hosted_zones.hosted_zones() {
-        let _zone_name = zone.name();
-        let zone_id = zone.id();
+    //let mut zone_ids = String::new();
+    //for zone in hosted_zones.hosted_zones() {
+    //    let _zone_name = zone.name();
+    //    let zone_id = zone.id();
 
-        zone_ids.push_str(zone_id);
-    }
+    //    zone_ids.push_str(zone_id);
+    //}
 
-    Ok(zone_ids)
+    // TODO: Support many hosted zones.
+    let zone_id = hosted_zones
+        .hosted_zones()
+        .first()
+        .map(|zone| zone.id().to_string())
+        .expect("multi-zones isn't supported...yet.");
+
+    Ok(zone_id)
 }
 
 // TODO: Document fn
@@ -21,13 +28,16 @@ pub async fn list_all_resource_record_sets(
     hosted_zone_id: &str,
 ) -> Result<Vec<(String, Vec<String>, String)>, Error> {
     let hosted_zone_id = &hosted_zone_id;
+
     if hosted_zone_id.is_empty() {
         println!("Zone Error: {:?}\n", hosted_zone_id);
     } else {
         println!("Zone ID found, listing records in: {:?}\n", hosted_zone_id);
     }
+
     let response = client
         .list_resource_record_sets()
+        .max_items(1000)
         .hosted_zone_id(hosted_zone_id.to_owned())
         .send()
         .await?;
