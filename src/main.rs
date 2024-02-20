@@ -6,15 +6,18 @@ use crate::linode_api_read_only::{extract, list_linode_instances};
 use crate::list_ec2_ips::list_all_ec2_ips;
 use aws_sdk_ec2::Client as Ec2Client;
 use aws_sdk_route53::Client as Route53Client;
+//use clap::{value_parser, Arg, Command};
 use dotenv::dotenv;
 use serde_json::to_string_pretty;
 use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Config
     // AWS credential setup.
     dotenv().ok();
 
+    let token = env::var("LINODE_API_TOKEN").expect("LINODE_API_TOKEN in .env file.");
     let env_profile = "PROFILE";
     let profile_name = dotenv::var(env_profile).unwrap();
     let shared_config = aws_config::from_env()
@@ -29,10 +32,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let r53_client = Route53Client::new(&shared_config);
     let ec2_client = Ec2Client::new(&shared_config);
 
-    let token = env::var("LINODE_API_TOKEN").expect("LINODE_API_TOKEN in .env file.");
-
     match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
+            // Fetch all "A" records.
             let a_records = list_all_resource_record_sets(&r53_client, &zone_ids).await;
 
             match a_records {
@@ -60,55 +62,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     };
 
-                    println!();
-                    println!();
-
                     // At this point we should have the data we need from both Linode
                     let linode_instance_info = linode_instance_info;
-                    let ec2_ips = list_all_ec2_ips(&ec2_client).await;
 
-                    // AWS EC2
-                    match ec2_ips {
-                        Ok(ec2_ips) => {
-                            for (id, ip) in ec2_ips {
-                                let instance_id = id;
-                                let public_ip_address = ip;
-                                println!(
-                                    "Instance ID: {}, IP Address: {}",
-                                    instance_id, public_ip_address
-                                );
-                            }
-                        }
-                        Err(err) => {
-                            eprintln!("Error fetching EC2 IPs: {}", err);
-                        }
-                    }
-                    println!();
-                    let ec2_instance_info = list_all_ec2_ips(&ec2_client).await?;
-
-                    println!("AWS --> {:?}", ec2_instance_info);
+                    println!("Fetching public IPs for associated EC2 Instances.");
+                    let ec2_instance_info =
+                        list_all_ec2_ips(&ec2_client).await.unwrap_or_else(|err| {
+                            eprintln!("Error fetching EC2 instance info: {}", err);
+                            Vec::new() // Return an empty vector as a fallback value
+                        });
 
                     // Compare the allocated addresses and see if a record exists.
                     for (name, record, _) in a_records {
-                        println!("Existing Record found: {:?}. Domain Name: {}", record, name);
-
                         if let Some(record_ip) = record.first() {
-                            if ec2_instance_info.iter().any(|(_, ip)| ip == record_ip) {
-                                println!("The record {:?} appears to be valid.  --OK\n", record);
+                            if linode_instance_info.iter().any(|(_, ip)| ip == record_ip)
+                                || ec2_instance_info.iter().any(|(_, ip)| ip == record_ip)
+                            {
+                                println!(
+                                    "The record {:?} for {} appears to be valid.  --OK",
+                                    record, name
+                                );
                             }
-                            if linode_instance_info.iter().any(|(_, ip)| ip == record_ip) {
-                                println!("The record {:?} appears to be valid.  --OK\n", record);
-                            }
-                            if !ec2_instance_info.iter().any(|(_, ip)| ip == record_ip) {
-                                println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED\n", record, name);
-                            }
-                            if !linode_instance_info.iter().any(|(_, ip)| ip == record_ip) {
-                                println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED\n", record, name);
+                            if !linode_instance_info.iter().any(|(_, ip)| ip == record_ip)
+                                && !ec2_instance_info.iter().any(|(_, ip)| ip == record_ip)
+                            {
+                                println!("The record {:?} for {} appears to be unallocated/. Consider deleting the record. --UNEXPECTED", record, name);
                             }
                         } else {
                             // Handle the case where the record does not contain an IP address
                             println!(
-                                "INFO: A record does not contain an IP address for {} --INFO\n",
+                                "INFO: A record does not contain an IP address for {} --INFO",
                                 name
                             );
                         }
