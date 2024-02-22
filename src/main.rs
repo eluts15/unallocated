@@ -2,7 +2,7 @@ mod fetch_records;
 mod linode_api_read_only;
 mod list_ec2_ips;
 
-use crate::fetch_records::{list_all_resource_record_sets, search_hosted_zones};
+use crate::fetch_records::{fetch_all_resource_record_sets, search_hosted_zones};
 use crate::linode_api_read_only::{extract, list_linode_instances};
 use crate::list_ec2_ips::list_all_ec2_ips;
 
@@ -11,7 +11,6 @@ use aws_credential_types::provider::{ProvideCredentials, SharedCredentialsProvid
 use aws_sdk_ec2::config::{Credentials, Region};
 use aws_sdk_ec2::Client as Ec2Client;
 use aws_sdk_route53::Client as Route53Client;
-
 use dotenv::dotenv;
 use serde_json::to_string_pretty;
 use std::env;
@@ -78,21 +77,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match search_hosted_zones(&r53_client).await {
         Ok(zone_ids) => {
-            // Fetch all "A" records.
-            let a_records = list_all_resource_record_sets(&r53_client, &zone_ids).await;
-            match a_records {
-                Ok(a_records) => {
+            let resource_record_sets = fetch_all_resource_record_sets(&r53_client, &zone_ids).await;
+
+            match resource_record_sets {
+                Ok(ref records) => {
                     println!("Fetching public IPs for associated Linode Instances.");
                     let json_response = match list_linode_instances(token).await {
                         Ok(response) => response,
                         Err(err) => {
-                            eprintln!("Error: {}", err);
+                            eprintln!("Error with linode GET request: {}", err);
                             return Ok(());
                         }
                     };
                     let formatted_json_response = to_string_pretty(&json_response)?;
 
-                    // LINODE
+                    // Linode
                     let mut linode_instance_info: Vec<(String, String)> = Vec::new();
                     match extract(&formatted_json_response).await {
                         Ok(data) => {
@@ -100,56 +99,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 linode_instance_info.push((id.to_string(), ipv4.to_string()));
                             }
                         }
-                        Err(e) => {
-                            eprintln!("Error {}", e);
+                        Err(err) => {
+                            eprintln!("Error reading linode instance info: {}", err);
                         }
                     };
 
-                    // At this point we should have the data we need from both Linode
                     let linode_instance_info = linode_instance_info;
 
                     println!("Fetching public IPs for associated EC2 Instances.");
+                    println!();
                     let ec2_instance_info =
                         list_all_ec2_ips(&ec2_client).await.unwrap_or_else(|err| {
                             eprintln!("Error fetching EC2 instance info: {}", err);
                             Vec::new() // Return an empty vector as a fallback value
                         });
 
-                    let mut ocurrences_ok = 0;
-                    let mut ocurrences_unexpected = 0;
-                    let mut ocurrences_info = 0;
-                    println!();
-                    // Print column headers
-                    println!(
-                        "{: <20} | {: <50} | {: <10}",
-                        "Address", "Domain Name", "Status"
-                    );
-                    println!();
+                    let mut occurrences_ok = 0;
+                    let mut occurrences_unexpected = 0;
+                    let mut occurrences_info = 0;
 
-                    // Initialize a variable to store the previous domain name
-                    let mut previous_domain = String::new();
+                    // Compare the allocated addresses and see if a record exists
+                    for record in records {
+                        // Ensure the record is an A record
+                        if let aws_sdk_route53::types::RrType::A = record.r#type {
+                            // Extract IP addresses from the record
+                            let ip = record.resource_records.as_ref().map_or(
+                                "No IP".to_string(),
+                                |records| {
+                                    records
+                                        .first()
+                                        .map_or("No IP".to_string(), |record| record.value.clone())
+                                },
+                            );
 
-                    // Compare the allocated addresses and see if a record exists.
-                    for (name, record, _) in &a_records {
-                        // Extract IP addresses from the record
-                        for (index, ip) in record.iter().enumerate() {
-                            // Print the domain name only once for consecutive IP addresses
-                            let domain_name = if index == 0 && name != &previous_domain {
-                                &name[..]
-                            } else {
-                                ""
-                            };
+                            let domain_name = record.name.clone();
 
                             let status = if linode_instance_info
                                 .iter()
-                                .any(|(_, linode_ip)| linode_ip == ip)
-                                || ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == ip)
+                                .any(|(_, linode_ip)| linode_ip == &ip)
+                                || ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == &ip)
                             {
                                 "OK"
                             } else if !linode_instance_info
                                 .iter()
-                                .any(|(_, linode_ip)| linode_ip == ip)
-                                && !ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == ip)
+                                .any(|(_, linode_ip)| linode_ip == &ip)
+                                && !ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == &ip)
                             {
                                 "UNEXPECTED"
                             } else {
@@ -159,28 +153,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Print record details in columns
                             println!("{: <20} | {: <50} | {}", ip, domain_name, status);
 
-                            //match status {
-                            //    "OK" => ocurrences_ok += 1,
-                            //    "UNEXPECTED" => ocurrences_unexpected += 1,
-                            //    "INFO" => ocurrences_info += 1,
-                            //    _ => {}
-                            //}
+                            // Update counters based on status
                             match status {
-                                "OK" => ocurrences_ok += 1,
-                                "INFO" => ocurrences_info += 1,
-                                _ => ocurrences_unexpected += 1, // Any status other than "OK" or "INFO" is marked as "UNEXPECTED"
+                                "OK" => occurrences_ok += 1,
+                                "INFO" => occurrences_info += 1,
+                                _ => occurrences_unexpected += 1,
                             }
-
-                            previous_domain = name.to_string();
                         }
                     }
-                    println!();
-                    // Printing the occurrences
-                    println!("{} OK", ocurrences_ok);
-                    println!("{} May require attention.", ocurrences_unexpected);
-                    println!("{} Not associated with an 'A' record.", ocurrences_info);
 
-                    let total_number_of_records = a_records.len();
+                    // TODO: There appears to be an issue with pagination we should expect 237
+                    // Records, currently getting 207.
+
+                    println!();
+                    println!("{} OK.", occurrences_ok);
+                    println!("{} May require attention.", occurrences_unexpected);
+
+                    let total_number_of_records = records.len();
                     println!("Iterated over {} records.", total_number_of_records);
 
                     println!("Done");
@@ -189,8 +178,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprintln!("Error fetching records fom Route53: {}", err);
                 }
             }
-
-            // Determine if the A record in Route53 is attached to an existing instance.
         }
         Err(err) => eprintln!("Error fetching resources {:?}, Check Permission Set", err),
     }
