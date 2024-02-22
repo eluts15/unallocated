@@ -118,6 +118,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut occurrences_unexpected = 0;
                     let mut occurrences_info = 0;
 
+                    // Print column headers
+                    println!(
+                        "{: <20} | {: <50} | {: <10}",
+                        "Address", "Domain Name", "Status"
+                    );
+
                     // Compare the allocated addresses and see if a record exists
                     for record in records {
                         // Ensure the record is an A record
