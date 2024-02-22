@@ -16,8 +16,7 @@ use dotenv::dotenv;
 use serde_json::to_string_pretty;
 use std::env;
 
-//use log::{debug, error, info, log_enabled, Level};
-
+// Allow to pass non-default aws credentials.
 #[derive(Debug)]
 struct StaticCredentials {
     access_key_id: String,
@@ -72,9 +71,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
 
     let r53_client = Route53Client::new(&shared_config);
-
     let ec2_client = Ec2Client::new(&shared_config);
 
+    // Linode
     let token = env::var("LINODE_API_TOKEN").expect("LINODE_API_TOKEN in .env file.");
 
     match search_hosted_zones(&r53_client).await {
@@ -141,7 +140,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 ""
                             };
 
-                            // Determine status based on existing logic
                             let status = if linode_instance_info
                                 .iter()
                                 .any(|(_, linode_ip)| linode_ip == ip)
@@ -161,11 +159,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // Print record details in columns
                             println!("{: <20} | {: <50} | {}", ip, domain_name, status);
 
+                            //match status {
+                            //    "OK" => ocurrences_ok += 1,
+                            //    "UNEXPECTED" => ocurrences_unexpected += 1,
+                            //    "INFO" => ocurrences_info += 1,
+                            //    _ => {}
+                            //}
                             match status {
                                 "OK" => ocurrences_ok += 1,
-                                "UNEXPECTED" => ocurrences_unexpected += 1,
                                 "INFO" => ocurrences_info += 1,
-                                _ => {}
+                                _ => ocurrences_unexpected += 1, // Any status other than "OK" or "INFO" is marked as "UNEXPECTED"
                             }
 
                             previous_domain = name.to_string();
@@ -179,6 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let total_number_of_records = a_records.len();
                     println!("Iterated over {} records.", total_number_of_records);
+
                     println!("Done");
                 }
                 Err(err) => {
