@@ -30,7 +30,7 @@ pub async fn fetch_all_resource_record_sets(
     // dumb af
     let response = client
         .list_resource_record_sets()
-        .max_items(100)
+        .max_items(1)
         .hosted_zone_id(hosted_zone_id.to_owned())
         .send()
         .await?;
