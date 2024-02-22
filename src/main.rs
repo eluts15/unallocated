@@ -127,40 +127,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                     println!();
 
+                    // Initialize a variable to store the previous domain name
+                    let mut previous_domain = String::new();
+
                     // Compare the allocated addresses and see if a record exists.
                     for (name, record, _) in &a_records {
-                        // Extract IP addresses from the record, if available
-                        let addresses: Vec<String> =
-                            record.iter().map(|ip| ip.to_string()).collect();
-                        let address = if addresses.is_empty() {
-                            "No IP".to_string()
-                        } else {
-                            addresses.join("\n")
-                        };
-                        // Determine status based on existing logic
-                        let status = if !addresses.is_empty()
-                            && linode_instance_info.iter().any(|(_, ip)| ip == &address)
-                            || ec2_instance_info.iter().any(|(_, ip)| ip == &address)
-                        {
-                            "OK"
-                        } else if !addresses.is_empty()
-                            && !linode_instance_info.iter().any(|(_, ip)| ip == &address)
-                            && !ec2_instance_info.iter().any(|(_, ip)| ip == &address)
-                        {
-                            "UNEXPECTED"
-                        } else {
-                            "INFO"
-                        };
+                        // Extract IP addresses from the record
+                        for (index, ip) in record.iter().enumerate() {
+                            // Print the domain name only once for consecutive IP addresses
+                            let domain_name = if index == 0 && name != &previous_domain {
+                                &name[..]
+                            } else {
+                                ""
+                            };
 
-                        match status {
-                            "OK" => ocurrences_ok += 1,
-                            "UNEXPECTED" => ocurrences_unexpected += 1,
-                            "INFO" => ocurrences_info += 1,
-                            _ => {}
+                            // Determine status based on existing logic
+                            let status = if linode_instance_info
+                                .iter()
+                                .any(|(_, linode_ip)| linode_ip == ip)
+                                || ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == ip)
+                            {
+                                "OK"
+                            } else if !linode_instance_info
+                                .iter()
+                                .any(|(_, linode_ip)| linode_ip == ip)
+                                && !ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == ip)
+                            {
+                                "UNEXPECTED"
+                            } else {
+                                "INFO"
+                            };
+
+                            // Print record details in columns
+                            println!("{: <20} | {: <50} | {}", ip, domain_name, status);
+
+                            match status {
+                                "OK" => ocurrences_ok += 1,
+                                "UNEXPECTED" => ocurrences_unexpected += 1,
+                                "INFO" => ocurrences_info += 1,
+                                _ => {}
+                            }
+
+                            previous_domain = name.to_string();
                         }
-
-                        // Print record details in columns
-                        println!("{: <20} | {: <50} | {}", address, name, status);
                     }
                     println!();
                     // Printing the occurrences
