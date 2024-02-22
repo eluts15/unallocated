@@ -119,33 +119,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let mut ocurrences_ok = 0;
                     let mut ocurrences_unexpected = 0;
                     let mut ocurrences_info = 0;
+                    println!();
+                    // Print column headers
+                    println!(
+                        "{: <20} | {: <50} | {: <10}",
+                        "Address", "Domain Name", "Status"
+                    );
+                    println!();
 
                     // Compare the allocated addresses and see if a record exists.
-                    for (name, record, _) in a_records {
-                        if let Some(record_ip) = record.first() {
-                            if linode_instance_info.iter().any(|(_, ip)| ip == record_ip)
-                                || ec2_instance_info.iter().any(|(_, ip)| ip == record_ip)
-                            {
-                                println!(
-                                    "The record {:?} for {} appears to be valid.  --OK",
-                                    record, name
-                                );
-                                ocurrences_ok += 1;
-                            }
-                            if !linode_instance_info.iter().any(|(_, ip)| ip == record_ip)
-                                && !ec2_instance_info.iter().any(|(_, ip)| ip == record_ip)
-                            {
-                                println!("The record {:?} for {} appears to be unallocated. Consider deleting the record. --UNEXPECTED", record, name);
-                                ocurrences_unexpected += 1;
-                            }
+                    for (name, record, _) in &a_records {
+                        // Extract IP addresses from the record, if available
+                        let addresses: Vec<String> =
+                            record.iter().map(|ip| ip.to_string()).collect();
+                        let address = if addresses.is_empty() {
+                            "No IP".to_string()
                         } else {
-                            // Handle the case where the record does not contain an IP address
-                            println!(
-                                "INFO: A record does not contain an IP address for {} --INFO",
-                                name
-                            );
-                            ocurrences_info += 1;
+                            addresses.join("\n")
+                        };
+                        // Determine status based on existing logic
+                        let status = if !addresses.is_empty()
+                            && linode_instance_info.iter().any(|(_, ip)| ip == &address)
+                            || ec2_instance_info.iter().any(|(_, ip)| ip == &address)
+                        {
+                            "OK"
+                        } else if !addresses.is_empty()
+                            && !linode_instance_info.iter().any(|(_, ip)| ip == &address)
+                            && !ec2_instance_info.iter().any(|(_, ip)| ip == &address)
+                        {
+                            "UNEXPECTED"
+                        } else {
+                            "INFO"
+                        };
+
+                        match status {
+                            "OK" => ocurrences_ok += 1,
+                            "UNEXPECTED" => ocurrences_unexpected += 1,
+                            "INFO" => ocurrences_info += 1,
+                            _ => {}
                         }
+
+                        // Print record details in columns
+                        println!("{: <20} | {: <50} | {}", address, name, status);
                     }
                     println!();
                     // Printing the occurrences
@@ -153,8 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{} May require attention.", ocurrences_unexpected);
                     println!("{} Not associated with an 'A' record.", ocurrences_info);
 
-                    let total_number_of_records =
-                        ocurrences_ok + ocurrences_unexpected + ocurrences_info;
+                    let total_number_of_records = a_records.len();
                     println!("Iterated over {} records.", total_number_of_records);
                     println!("Done");
                 }
