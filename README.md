@@ -26,6 +26,18 @@ Iterated over 348 records.
 Done
 
 ```
+
+```
+./unallocated | grep -i UNEXPECTED
+
+xxx.xxx.xx.xx        | example2.com.                                      | UNEXPECTED 
+xxx.xxx.xx.xx        | somedomain.com.                                    | UNEXPECTED 
+```
+
+
+
+
+
 ## Building for Release
 ```
 Cargo build --release
