@@ -139,37 +139,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             );
 
                             let domain_name = record.name.clone();
+                            let mut is_ok = false;
 
-                            let status = if linode_instance_info
+                            if linode_instance_info
                                 .iter()
                                 .any(|(_, linode_ip)| linode_ip == &ip)
-                                || ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == &ip)
                             {
-                                "OK"
-                            } else if !linode_instance_info
-                                .iter()
-                                .any(|(_, linode_ip)| linode_ip == &ip)
-                                && !ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == &ip)
-                            {
-                                "UNEXPECTED"
+                                is_ok = true;
+                            }
+
+                            if ec2_instance_info.iter().any(|(_, ec2_ip)| ec2_ip == &ip) {
+                                is_ok = true;
+                            }
+
+                            let status = if is_ok {
+                                "OK" // IP is associated with either Linode or EC2 instance
                             } else {
-                                "INFO"
+                                "UNEXPECTED" // IP is not associated with either Linode or EC2 instance
                             };
-
                             // Print record details in columns
                             println!("{: <20} | {: <50} | {}", ip, domain_name, status);
 
-                            // Update counters based on status
+                            // Increment the counters based on the status
                             match status {
                                 "OK" => occurrences_ok += 1,
-                                "INFO" => occurrences_info += 1,
-                                _ => occurrences_unexpected += 1,
-                            }
+                                "UNEXPECTED" => occurrences_unexpected += 1,
+                                _ => (),
+                            };
                         }
                     }
-
-                    // TODO: There appears to be an issue with pagination we should expect 237
-                    // Records, currently getting 207.
 
                     println!();
                     println!("{} OK.", occurrences_ok);
