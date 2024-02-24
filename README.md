@@ -108,11 +108,14 @@ region=YOUR_REGION
 Uses .env to set AWS Credentials.
 Create a `.env` file in the root directory.  
 
-## TODO
+## TODO/Bugs
 
 - Add tests  
 - Add support for multi-zone
+    - Only checks the first zone in the list atm...
 - Fix some things.
+    - Doesn't check ec2 instances in other regions yet
 - Configurable
+    - 
 
 
